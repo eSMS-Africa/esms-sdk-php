@@ -1,5 +1,5 @@
 {
-    "name": "esms/sms",
+    "name": "esmsafrica/sms",
     "description": "Official PHP SDK for the eSMS Africa SMS API",
     "type": "library",
     "keywords": ["esms", "sms", "africa", "bulk sms", "otp", "messaging"],

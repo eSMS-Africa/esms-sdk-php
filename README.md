@@ -1,4 +1,4 @@
-# esms/sms
+# esmsafrica/sms
 
 Official PHP SDK for the [eSMS Africa](https://esmsafrica.io) SMS API.
 
@@ -7,7 +7,7 @@ Send SMS across 14+ African countries, track delivery, schedule messages, and ch
 ## Install
 
 ```bash
-composer require esms/sms
+composer require esmsafrica/sms
 ```
 
 ## Quick start
