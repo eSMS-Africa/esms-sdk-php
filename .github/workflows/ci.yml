@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+
+# PHP packages are distributed via Packagist, which auto-updates from a GitHub
+# webhook on each push/tag — no publish step runs here. Register the package
+# once at https://packagist.org/packages/submit with the repo URL.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: curl, json
+      - run: composer install --no-interaction
+      - run: vendor/bin/phpunit
