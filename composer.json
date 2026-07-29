@@ -1,0 +1,35 @@
+{
+    "name": "esms/sms",
+    "description": "Official PHP SDK for the eSMS Africa SMS API",
+    "type": "library",
+    "keywords": ["esms", "sms", "africa", "bulk sms", "otp", "messaging"],
+    "homepage": "https://esmsafrica.io",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "eSMS Africa",
+            "email": "support@esmsafrica.io"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "ext-json": "*",
+        "ext-curl": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5 || ^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Esms\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Esms\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
