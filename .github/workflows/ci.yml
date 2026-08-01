@@ -8,7 +8,7 @@ on:
     branches: ["main"]
 
 # PHP packages are distributed via Packagist, which auto-updates from a GitHub
-# webhook on each push/tag — no publish step runs here. Register the package
+# webhook on each push/tag - no publish step runs here. Register the package
 # once at https://packagist.org/packages/submit with the repo URL.
 jobs:
   test:

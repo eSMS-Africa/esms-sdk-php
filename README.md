@@ -20,7 +20,7 @@ $esms = new \Esms\Client('esms_live_...');
 $res = $esms->messages->send([
     'to'        => '+256700000000',
     'text'      => 'Your verification code is 123456',
-    'sender_id' => 'eSMSAfrica', // optional — falls back to the route default
+    'sender_id' => 'eSMSAfrica', // optional - falls back to the route default
 ]);
 
 echo $res['id'], ' ', $res['status']; // "...", "submitted"
@@ -97,13 +97,13 @@ try {
 
 | Exception | When |
 |-----------|------|
-| `AuthenticationException` | 401 — key missing or invalid |
-| `PermissionException` | 403 — not allowed |
-| `NotFoundException` | 404 — no such message |
-| `InvalidRequestException` | 400 / 422 — bad request |
-| `InsufficientBalanceException` | 422 — not enough credit (`getBalance()`, `getCost()`, `getCurrency()`) |
-| `RateLimitException` | 429 — slow down |
-| `ApiException` | 5xx — server error |
+| `AuthenticationException` | 401 - key missing or invalid |
+| `PermissionException` | 403 - not allowed |
+| `NotFoundException` | 404 - no such message |
+| `InvalidRequestException` | 400 / 422 - bad request |
+| `InsufficientBalanceException` | 422 - not enough credit (`getBalance()`, `getCost()`, `getCurrency()`) |
+| `RateLimitException` | 429 - slow down |
+| `ApiException` | 5xx - server error |
 | `ConnectionException` | network failure or timeout |
 
 ## Configuration
