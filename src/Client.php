@@ -31,6 +31,29 @@ class Client
     /** @var Resource\Routes */
     public $routes;
 
+    /** @var Resource\Verify */
+    public $verify;
+
+    /** @var Resource\OptOuts */
+    public $optOuts;
+
+    /**
+     * Verify an incoming webhook's HMAC-SHA256 signature (constant-time).
+     *
+     * @param string      $rawBody   The exact raw request body (not re-serialized).
+     * @param string|null $signature The `X-Webhook-Signature` header (e.g. `sha256=...`).
+     * @param string      $secret    Your webhook signing secret.
+     */
+    public static function verifyWebhook(string $rawBody, ?string $signature, string $secret): bool
+    {
+        if ($signature === null || $signature === '' || $secret === '') {
+            return false;
+        }
+        $expected = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);
+
+        return hash_equals($expected, $signature);
+    }
+
     /**
      * @param array{base_url?:string,timeout?:int,max_retries?:int} $options
      */
@@ -50,6 +73,8 @@ class Client
         $this->messages = new Resource\Messages($this->http);
         $this->balance = new Resource\Balance($this->http);
         $this->routes = new Resource\Routes($this->http);
+        $this->verify = new Resource\Verify($this->http);
+        $this->optOuts = new Resource\OptOuts($this->http);
     }
 
     public function getBaseUrl(): string
