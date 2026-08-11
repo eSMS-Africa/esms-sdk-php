@@ -101,7 +101,7 @@ try {
 | `PermissionException` | 403 - not allowed |
 | `NotFoundException` | 404 - no such message |
 | `InvalidRequestException` | 400 / 422 - bad request |
-| `InsufficientBalanceException` | 422 - not enough credit (`getBalance()`, `getCost()`, `getCurrency()`) |
+| `InsufficientBalanceException` | 402 - not enough credit (`getBalance()`, `getCost()`, `getCurrency()`) |
 | `RateLimitException` | 429 - slow down |
 | `ApiException` | 5xx - server error |
 | `ConnectionException` | network failure or timeout |
