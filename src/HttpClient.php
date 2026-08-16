@@ -44,7 +44,7 @@ class HttpClient
      * @param array<string,mixed>|null $body
      * @return mixed
      */
-    public function request(string $method, string $path, ?array $query = null, ?array $body = null)
+    public function request(string $method, string $path, ?array $query = null, ?array $body = null, ?array $extraHeaders = null)
     {
         $url = $this->baseUrl . $path;
         if ($query) {
@@ -61,6 +61,13 @@ class HttpClient
             'Accept: application/json',
             'User-Agent: esms-php/' . self::VERSION,
         ];
+        if ($extraHeaders) {
+            foreach ($extraHeaders as $k => $v) {
+                if ($v !== null) {
+                    $headers[] = $k . ': ' . $v;
+                }
+            }
+        }
         $payload = null;
         if ($body !== null) {
             $clean = array_filter($body, static function ($v) {
