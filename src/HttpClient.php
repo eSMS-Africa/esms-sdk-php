@@ -17,6 +17,9 @@ class HttpClient
 {
     private const VERSION = '1.0.0';
 
+    /** Methods that are safe to repeat after a 5xx or network error. */
+    private const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS'];
+
     /** @var string */
     private $apiKey;
     /** @var string */
@@ -40,8 +43,25 @@ class HttpClient
     }
 
     /**
+     * A random idempotency key (UUID v4).
+     */
+    public static function newIdempotencyKey(): string
+    {
+        $b = random_bytes(16);
+        $b[6] = chr((ord($b[6]) & 0x0f) | 0x40);
+        $b[8] = chr((ord($b[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($b), 4));
+    }
+
+    /**
+     * POSTs are only retried after a 5xx or network error when they carry an
+     * Idempotency-Key, so a retry can never send or charge twice. 429 is
+     * always retried (the request was rejected before it ran).
+     *
      * @param array<string,mixed>|null $query
      * @param array<string,mixed>|null $body
+     * @param array<string,string|null>|null $extraHeaders
      * @return mixed
      */
     public function request(string $method, string $path, ?array $query = null, ?array $body = null, ?array $extraHeaders = null)
@@ -77,13 +97,23 @@ class HttpClient
             $headers[] = 'Content-Type: application/json';
         }
 
+        $retrySafe = in_array(strtoupper($method), self::IDEMPOTENT_METHODS, true);
+        if ($extraHeaders) {
+            foreach ($extraHeaders as $k => $v) {
+                if ($v !== null && strtolower((string) $k) === 'idempotency-key') {
+                    $retrySafe = true;
+                }
+            }
+        }
+
         $lastError = null;
         for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             [$status, $rawBody, $requestId, $curlErr] = $this->send($method, $url, $headers, $payload);
 
             if ($curlErr !== null) {
+                // The request may already have been processed; only retry when safe.
                 $lastError = $curlErr;
-                if ($attempt < $this->maxRetries) {
+                if ($retrySafe && $attempt < $this->maxRetries) {
                     usleep((int) ($this->backoff($attempt) * 1_000_000));
                     continue;
                 }
@@ -96,7 +126,7 @@ class HttpClient
                 return $parsed;
             }
 
-            if (($status === 429 || $status >= 500) && $attempt < $this->maxRetries) {
+            if (($status === 429 || ($status >= 500 && $retrySafe)) && $attempt < $this->maxRetries) {
                 $lastError = "HTTP {$status}";
                 usleep((int) ($this->backoff($attempt) * 1_000_000));
                 continue;

@@ -6,7 +6,7 @@ namespace Esms\Resource;
 
 use Esms\HttpClient;
 
-/** Managed OTP verification — we generate, send, and check the code. */
+/** Managed OTP verification - we generate, send, and check the code. */
 class Verify
 {
     /** @var HttpClient */
@@ -19,6 +19,9 @@ class Verify
 
     /**
      * Send a verification code to a phone number.
+     *
+     * `idempotency_key` makes retries safe (a repeat returns the original);
+     * a random key is generated per call when omitted.
      *
      * @param array{app_id?:string,sender_id?:string,code_length?:int,expiry_seconds?:int,template?:string,idempotency_key?:string} $options
      */
@@ -34,7 +37,7 @@ class Verify
         ], static function ($v) {
             return $v !== null;
         });
-        $headers = isset($options['idempotency_key']) ? ['Idempotency-Key' => $options['idempotency_key']] : null;
+        $headers = ['Idempotency-Key' => $options['idempotency_key'] ?? HttpClient::newIdempotencyKey()];
 
         return $this->http->request('POST', '/verify/start', null, $body, $headers);
     }
@@ -60,19 +63,19 @@ class Verify
     /** Fetch a verification's status without consuming an attempt. */
     public function get(string $verificationId): array
     {
-        return $this->http->request('GET', '/verify/' . $verificationId);
+        return $this->http->request('GET', '/verify/' . rawurlencode($verificationId));
     }
 
     /** Send a fresh code for the same verification. */
     public function resend(string $verificationId): array
     {
-        return $this->http->request('POST', '/verify/' . $verificationId . '/resend');
+        return $this->http->request('POST', '/verify/' . rawurlencode($verificationId) . '/resend');
     }
 
     /** Void an in-flight verification. */
     public function cancel(string $verificationId): array
     {
-        return $this->http->request('POST', '/verify/' . $verificationId . '/cancel');
+        return $this->http->request('POST', '/verify/' . rawurlencode($verificationId) . '/cancel');
     }
 
     /**
@@ -101,7 +104,7 @@ class Verify
 
     public function getApp(string $id): array
     {
-        return $this->http->request('GET', '/verify/apps/' . $id);
+        return $this->http->request('GET', '/verify/apps/' . rawurlencode($id));
     }
 
     /**
@@ -110,17 +113,18 @@ class Verify
      */
     public function updateApp(string $id, array $body): array
     {
-        return $this->http->request('PATCH', '/verify/apps/' . $id, null, $body);
+        return $this->http->request('PATCH', '/verify/apps/' . rawurlencode($id), null, $body);
     }
 
-    public function deleteApp(string $id): array
+    /** Delete a Verify App (the API answers 204 No Content). */
+    public function deleteApp(string $id): void
     {
-        return $this->http->request('DELETE', '/verify/apps/' . $id);
+        $this->http->request('DELETE', '/verify/apps/' . rawurlencode($id));
     }
 
     /** Per-app verification stats. */
     public function appStats(string $id, int $days = 30): array
     {
-        return $this->http->request('GET', '/verify/apps/' . $id . '/stats', ['days' => $days]);
+        return $this->http->request('GET', '/verify/apps/' . rawurlencode($id) . '/stats', ['days' => $days]);
     }
 }

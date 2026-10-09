@@ -17,10 +17,10 @@ class OptOuts
         $this->http = $http;
     }
 
-    /** List numbers that have opted out of your messages. */
-    public function list(): array
+    /** List numbers that have opted out of your messages (default 200, max 1000). */
+    public function list(?int $limit = null): array
     {
-        $r = $this->http->request('GET', '/opt-outs');
+        $r = $this->http->request('GET', '/opt-outs', ['limit' => $limit]);
 
         return $r['opt_outs'] ?? [];
     }
