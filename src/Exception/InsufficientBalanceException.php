@@ -25,6 +25,17 @@ class InsufficientBalanceException extends InvalidRequestException
 
     public function getCurrency(): ?string
     {
-        return is_array($this->detail) ? ($this->detail['currency'] ?? null) : null;
+        if (is_array($this->detail) && is_string($this->detail['currency'] ?? null)) {
+            return $this->detail['currency'];
+        }
+        // The API states the wallet currency only inside the message
+        // ("Required KES 5, available KES 1"), so recover it from there.
+        $text = is_array($this->detail) && is_string($this->detail['message'] ?? null)
+            ? $this->detail['message']
+            : $this->getMessage();
+        if (preg_match('/\b(?:Required|available)\s+([A-Z]{3})\b/', $text, $m)) {
+            return $m[1];
+        }
+        return null;
     }
 }

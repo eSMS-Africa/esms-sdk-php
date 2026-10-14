@@ -15,7 +15,7 @@ use Esms\Exception\EsmsException;
  */
 class HttpClient
 {
-    private const VERSION = '1.0.0';
+    private const VERSION = '1.1.0';
 
     /** Methods that are safe to repeat after a 5xx or network error. */
     private const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS'];
@@ -94,6 +94,11 @@ class HttpClient
                 return $v !== null;
             });
             $payload = json_encode($clean);
+            if ($payload === false) {
+                // e.g. text that is not valid UTF-8: fail loudly instead of
+                // POSTing an empty body.
+                throw new \InvalidArgumentException('Could not encode the request body as JSON: ' . json_last_error_msg());
+            }
             $headers[] = 'Content-Type: application/json';
         }
 
@@ -108,7 +113,7 @@ class HttpClient
 
         $lastError = null;
         for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
-            [$status, $rawBody, $requestId, $curlErr] = $this->send($method, $url, $headers, $payload);
+            [$status, $rawBody, $requestId, $curlErr, $retryAfter] = $this->send($method, $url, $headers, $payload);
 
             if ($curlErr !== null) {
                 // The request may already have been processed; only retry when safe.
@@ -123,12 +128,16 @@ class HttpClient
             $parsed = $rawBody === '' ? null : $this->safeJson($rawBody);
 
             if ($status >= 200 && $status < 300) {
+                if (is_string($parsed)) {
+                    // A 2xx that is not JSON (e.g. an HTML page from a proxy).
+                    throw new EsmsException("Unexpected non-JSON response (HTTP {$status})", $status, null, substr($parsed, 0, 500), $requestId);
+                }
                 return $parsed;
             }
 
             if (($status === 429 || ($status >= 500 && $retrySafe)) && $attempt < $this->maxRetries) {
                 $lastError = "HTTP {$status}";
-                usleep((int) ($this->backoff($attempt) * 1_000_000));
+                usleep((int) ($this->backoff($attempt, $retryAfter) * 1_000_000));
                 continue;
             }
 
@@ -140,9 +149,9 @@ class HttpClient
 
     /**
      * @param string[] $headers
-     * @return array{0:int,1:string,2:?string,3:?string}
+     * @return array{0:int,1:string,2:?string,3:?string,4:?string}
      */
-    private function send(string $method, string $url, array $headers, ?string $payload): array
+    protected function send(string $method, string $url, array $headers, ?string $payload): array
     {
         $ch = curl_init();
         curl_setopt_array($ch, [
@@ -162,7 +171,7 @@ class HttpClient
         if ($response === false) {
             $err = curl_error($ch);
             curl_close($ch);
-            return [0, '', null, $err ?: 'unknown cURL error'];
+            return [0, '', null, $err ?: 'unknown cURL error', null];
         }
 
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -171,19 +180,26 @@ class HttpClient
 
         $rawHeaders = substr((string) $response, 0, $headerSize);
         $rawBody = substr((string) $response, $headerSize);
-        $requestId = $this->extractRequestId($rawHeaders);
+        $requestId = $this->extractHeader($rawHeaders, 'x-request-id');
+        $retryAfter = $this->extractHeader($rawHeaders, 'retry-after');
 
-        return [$status, $rawBody, $requestId, null];
+        return [$status, $rawBody, $requestId, null, $retryAfter];
     }
 
-    private function extractRequestId(string $rawHeaders): ?string
+    /**
+     * Last value of a response header (the final response's block wins when
+     * cURL also captured an interim 100 Continue or a proxy CONNECT block).
+     */
+    private function extractHeader(string $rawHeaders, string $name): ?string
     {
-        foreach (explode("\r\n", $rawHeaders) as $line) {
-            if (stripos($line, 'x-request-id:') === 0) {
-                return trim(substr($line, strlen('x-request-id:')));
+        $value = null;
+        $prefix = strtolower($name) . ':';
+        foreach (preg_split('/\r?\n/', $rawHeaders) ?: [] as $line) {
+            if (stripos($line, $prefix) === 0) {
+                $value = trim(substr($line, strlen($prefix)));
             }
         }
-        return null;
+        return $value;
     }
 
     /** @return mixed */
@@ -193,8 +209,15 @@ class HttpClient
         return json_last_error() === JSON_ERROR_NONE ? $decoded : $raw;
     }
 
-    private function backoff(int $attempt): float
+    /**
+     * Seconds to wait before the next attempt. A numeric Retry-After header
+     * wins (capped at 20s, like the other SDKs).
+     */
+    public function backoff(int $attempt, ?string $retryAfter = null): float
     {
+        if ($retryAfter !== null && is_numeric($retryAfter)) {
+            return min((float) $retryAfter, 20.0);
+        }
         $base = min(0.5 * (2 ** $attempt), 10.0);
         return $base + $base * 0.2 * (mt_rand() / mt_getrandmax());
     }

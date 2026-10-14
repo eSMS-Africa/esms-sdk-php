@@ -36,8 +36,14 @@ class Messages
      *   schedule_mode?:string,
      *   scheduled_at?:string|DateTimeInterface,
      *   international?:bool,
-     *   idempotency_key?:string
+     *   idempotency_key?:string,
+     *   flash?:bool,
+     *   validity_period?:int,
+     *   priority?:int,
+     *   binary?:array{data:string,udh?:string,data_coding?:int}
      * } $params
+     *   Advanced options: flash (class-0 SMS), validity_period (minutes, 1-4320),
+     *   priority (0-3), binary (hex payload instead of text; pass 'text' => '').
      * @return array<string,mixed>
      */
     public function send(array $params): array
@@ -50,6 +56,10 @@ class Messages
             'schedule_mode' => $params['schedule_mode'] ?? null,
             'scheduled_at' => self::iso($params['scheduled_at'] ?? null),
             'international' => $params['international'] ?? null,
+            'flash' => $params['flash'] ?? null,
+            'validity_period' => $params['validity_period'] ?? null,
+            'priority' => $params['priority'] ?? null,
+            'binary' => $params['binary'] ?? null,
         ], ['Idempotency-Key' => $params['idempotency_key'] ?? HttpClient::newIdempotencyKey()]);
     }
 
@@ -116,7 +126,11 @@ class Messages
      *   schedule_mode?:string,
      *   scheduled_at?:string|DateTimeInterface,
      *   drip_rate?:int,
-     *   international?:bool
+     *   international?:bool,
+     *   flash?:bool,
+     *   validity_period?:int,
+     *   priority?:int,
+     *   skip_unavailable?:bool
      * } $options schedule_mode is "now" (default), "scheduled" (contact lists only) or "drip".
      * @return array{batch_id:string,total_recipients:int,estimated_cost:float,status:string}
      */
@@ -132,6 +146,10 @@ class Messages
             'scheduled_at' => self::iso($options['scheduled_at'] ?? null),
             'drip_rate' => $options['drip_rate'] ?? null,
             'international' => $options['international'] ?? null,
+            'flash' => $options['flash'] ?? null,
+            'validity_period' => $options['validity_period'] ?? null,
+            'priority' => $options['priority'] ?? null,
+            'skip_unavailable' => $options['skip_unavailable'] ?? null,
         ]);
     }
 

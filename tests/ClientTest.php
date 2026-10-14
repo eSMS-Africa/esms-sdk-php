@@ -36,6 +36,31 @@ class FakeHttp extends HttpClient
     }
 }
 
+/**
+ * An HttpClient whose transport returns scripted [status, body, requestId,
+ * curlErr, retryAfter] tuples, so the real request()/retry logic runs.
+ */
+class ScriptedTransport extends HttpClient
+{
+    /** @var array<int,array{0:int,1:string,2:?string,3:?string,4:?string}> */
+    public $script = [];
+    /** @var int */
+    public $calls = 0;
+
+    public function __construct(int $maxRetries, array $script)
+    {
+        parent::__construct('esms_test_abc', 'https://example.invalid/api', 5, $maxRetries);
+        $this->script = $script;
+    }
+
+    protected function send(string $method, string $url, array $headers, ?string $payload): array
+    {
+        $r = $this->script[min($this->calls, count($this->script) - 1)];
+        $this->calls++;
+        return $r;
+    }
+}
+
 class ClientTest extends TestCase
 {
     private function clientWith(callable $handler): array
@@ -193,5 +218,80 @@ class ClientTest extends TestCase
 
         $client->verify->deleteApp('app_1');
         $this->assertSame('/verify/apps/app_1', $fake->lastCall['path']);
+    }
+    public function testInsufficientBalanceCurrencyFromLiveMessage(): void
+    {
+        // The live API states the currency only inside the message text.
+        $e = EsmsException::fromResponse(402, [
+            'error' => ['code' => 'insufficient_balance', 'message' => 'x', 'request_id' => 'r'],
+            'detail' => [
+                'code' => 'insufficient_balance',
+                'message' => 'Insufficient balance. Required KES 5.0, available KES 1.0',
+                'required' => 5.0,
+                'available' => 1.0,
+            ],
+        ]);
+        $this->assertInstanceOf(InsufficientBalanceException::class, $e);
+        /** @var InsufficientBalanceException $e */
+        $this->assertSame('KES', $e->getCurrency());
+        $this->assertSame(1.0, $e->getBalance());
+        $this->assertSame(5.0, $e->getCost());
+    }
+
+    public function testNonJson2xxThrows(): void
+    {
+        $http = new ScriptedTransport(0, [[200, '<html>gateway</html>', 'rid', null, null]]);
+        $this->expectException(EsmsException::class);
+        $this->expectExceptionMessageMatches('/non-JSON/');
+        $http->request('GET', '/balance');
+    }
+
+    public function testInvalidUtf8BodyFailsBeforeSending(): void
+    {
+        $http = new ScriptedTransport(0, [[200, '{}', null, null, null]]);
+        try {
+            $http->request('POST', '/messages/send', null, ['to' => '+256700000000', 'text' => "\xB1\x31"]);
+            $this->fail('expected an exception');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertSame(0, $http->calls);
+        }
+    }
+
+    public function testRetryPolicyAndRetryAfter(): void
+    {
+        // POST without an Idempotency-Key is not retried after a 5xx.
+        $http = new ScriptedTransport(2, [[500, '{"detail":"boom"}', null, null, null]]);
+        try {
+            $http->request('POST', '/messages/m1/retry');
+            $this->fail('expected an exception');
+        } catch (EsmsException $e) {
+            $this->assertSame(500, $e->getStatus());
+        }
+        $this->assertSame(1, $http->calls);
+
+        // With a key it is retried, honouring Retry-After: 0.
+        $http = new ScriptedTransport(1, [
+            [503, '{}', null, null, '0'],
+            [200, '{"id":"m","status":"submitted"}', null, null, null],
+        ]);
+        $t = microtime(true);
+        $res = $http->request('POST', '/messages/send', null, ['to' => '+1', 'text' => 'x'], ['Idempotency-Key' => 'k']);
+        $this->assertSame('m', $res['id']);
+        $this->assertSame(2, $http->calls);
+        $this->assertLessThan(0.4, microtime(true) - $t);
+        $this->assertSame(3.0, $http->backoff(0, '3'));
+        $this->assertSame(20.0, $http->backoff(0, '120'));
+    }
+
+    public function testSendAndBulkAdvancedOptions(): void
+    {
+        [$client, $fake] = $this->clientWith(function () {
+            return ['id' => 'm', 'status' => 'submitted'];
+        });
+        $client->messages->send(['to' => '+256700000000', 'text' => 'x', 'flash' => true, 'validity_period' => 60, 'priority' => 1]);
+        $this->assertTrue($fake->lastCall['body']['flash']);
+        $this->assertSame(60, $fake->lastCall['body']['validity_period']);
+        $client->messages->sendBulk([], 'x', null, null, ['recipients' => [['to' => '+256700000000']], 'skip_unavailable' => true]);
+        $this->assertTrue($fake->lastCall['body']['skip_unavailable']);
     }
 }

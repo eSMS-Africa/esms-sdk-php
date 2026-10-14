@@ -58,6 +58,8 @@ $summary = $esms->messages->getBatch($batch['batch_id']);
 
 `messages->send()` attaches a random `Idempotency-Key` to every call so a retried request can never send or charge twice. Pass your own `'idempotency_key'` to make retries safe across process restarts too.
 
+Advanced options: `'flash' => true` (class-0 SMS shown on screen), `'validity_period'` (minutes, 1-4320), `'priority'` (0-3) and `'binary' => ['data' => $hex, 'udh' => $hex]` (pass `'text' => ''`). `sendBulk()` options also take `flash`, `validity_period`, `priority` and `'skip_unavailable' => true` (drop unreachable recipients, uncharged, instead of rejecting the whole batch).
+
 ## Delivery status
 
 ```php
