@@ -130,8 +130,11 @@ class Messages
      *   flash?:bool,
      *   validity_period?:int,
      *   priority?:int,
-     *   skip_unavailable?:bool
+     *   skip_unavailable?:bool,
+     *   idempotency_key?:string
      * } $options schedule_mode is "now" (default), "scheduled" (contact lists only) or "drip".
+     *   idempotency_key (generated when omitted) makes retries safe: a repeat returns the
+     *   original batch instead of sending and charging it again.
      * @return array{batch_id:string,total_recipients:int,estimated_cost:float,status:string}
      */
     public function sendBulk(array $contactListIds, string $text, ?string $senderId = null, ?string $route = null, array $options = []): array
@@ -150,7 +153,27 @@ class Messages
             'validity_period' => $options['validity_period'] ?? null,
             'priority' => $options['priority'] ?? null,
             'skip_unavailable' => $options['skip_unavailable'] ?? null,
-        ]);
+        ], ['Idempotency-Key' => $options['idempotency_key'] ?? HttpClient::newIdempotencyKey()]);
+    }
+
+    /**
+     * Cancel a scheduled message before it is sent; the charge is refunded.
+     *
+     * @return array<string,mixed>
+     */
+    public function cancel(string $messageId): array
+    {
+        return $this->http->request('POST', '/messages/' . rawurlencode($messageId) . '/cancel');
+    }
+
+    /**
+     * Cancel a scheduled bulk batch before its send time; the charge is refunded.
+     *
+     * @return array<string,mixed>
+     */
+    public function cancelBatch(string $batchId): array
+    {
+        return $this->http->request('POST', '/messages/batch/' . rawurlencode($batchId) . '/cancel');
     }
 
     /**

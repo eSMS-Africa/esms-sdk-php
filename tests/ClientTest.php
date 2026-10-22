@@ -294,4 +294,20 @@ class ClientTest extends TestCase
         $client->messages->sendBulk([], 'x', null, null, ['recipients' => [['to' => '+256700000000']], 'skip_unavailable' => true]);
         $this->assertTrue($fake->lastCall['body']['skip_unavailable']);
     }
+
+    public function testBulkIdempotencyKeyAndCancelEndpoints(): void
+    {
+        [$client, $fake] = $this->clientWith(function () {
+            return ['batch_id' => 'b1', 'status' => 'cancelled'];
+        });
+        $client->messages->sendBulk([], 'x', null, null, ['recipients' => [['to' => '+256700000000']], 'idempotency_key' => 'k-1']);
+        $this->assertSame('k-1', $fake->lastCall['extraHeaders']['Idempotency-Key']);
+        $client->messages->sendBulk([], 'x', null, null, ['recipients' => [['to' => '+256700000000']]]);
+        $this->assertNotEmpty($fake->lastCall['extraHeaders']['Idempotency-Key']);
+        $client->messages->cancel('m1');
+        $this->assertSame('/messages/m1/cancel', $fake->lastCall['path']);
+        $this->assertSame('POST', $fake->lastCall['method']);
+        $client->messages->cancelBatch('b1');
+        $this->assertSame('/messages/batch/b1/cancel', $fake->lastCall['path']);
+    }
 }
