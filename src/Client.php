@@ -37,6 +37,24 @@ class Client
     /** @var Resource\OptOuts */
     public $optOuts;
 
+    /** @var Resource\Campaigns */
+    public $campaigns;
+
+    /** @var Resource\Imports */
+    public $imports;
+
+    /** @var Resource\Jobs */
+    public $jobs;
+
+    /** @var Resource\Contacts */
+    public $contacts;
+
+    /** @var Resource\Groups */
+    public $groups;
+
+    /** @var Resource\Templates */
+    public $templates;
+
     /**
      * Verify an incoming webhook's HMAC-SHA256 signature (constant-time).
      *
@@ -75,6 +93,12 @@ class Client
         $this->routes = new Resource\Routes($this->http);
         $this->verify = new Resource\Verify($this->http);
         $this->optOuts = new Resource\OptOuts($this->http);
+        $this->campaigns = new Resource\Campaigns($this->http);
+        $this->imports = new Resource\Imports($this->http);
+        $this->jobs = new Resource\Jobs($this->http);
+        $this->contacts = new Resource\Contacts($this->http);
+        $this->groups = new Resource\Groups($this->http);
+        $this->templates = new Resource\Templates($this->http);
     }
 
     public function getBaseUrl(): string

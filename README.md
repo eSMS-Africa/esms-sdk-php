@@ -60,6 +60,41 @@ $summary = $esms->messages->getBatch($batch['batch_id']);
 
 Advanced options: `'flash' => true` (class-0 SMS shown on screen), `'validity_period'` (minutes, 1-4320), `'priority'` (0-3) and `'binary' => ['data' => $hex, 'udh' => $hex]` (pass `'text' => ''`). `sendBulk()` options also take `flash`, `validity_period`, `priority` and `'skip_unavailable' => true` (drop unreachable recipients, uncharged, instead of rejecting the whole batch).
 
+## Personalised bulk + campaigns
+
+Requires SDK 1.2.0 or later.
+
+```php
+// One call: a template with per-recipient merge fields. Invalid, duplicate and
+// opted-out numbers come back in "rejected" and are never charged.
+$batch = $esms->messages->sendBatch([
+    'template' => 'Hi {first_name|there}, your balance is UGX {balance}. Pay by {due_date}.',
+    'recipients' => [
+        ['to' => '+256772123456', 'name' => 'Ada Obi', 'vars' => ['balance' => '1,500', 'due_date' => '1 Nov']],
+        ['to' => '0701234567', 'vars' => ['balance' => '200', 'due_date' => '1 Nov']],
+    ],
+    'default_country' => 'UG',
+    'sender_id' => 'ACMEBANK',
+    'schedule' => ['mode' => 'scheduled', 'at' => '2026-11-01T09:00', 'timezone' => 'Africa/Kampala'],
+]);
+$status = $esms->messages->getBatch($batch['batch_id']);
+
+// Big lists: upload a CSV / Excel file, map columns, then run a campaign.
+$imp = $esms->imports->upload('debtors.xlsx', null, 'UG');
+$job = $esms->imports->process($imp['id'], ['phone' => 'Mobile', 'name' => 'Name', 'fields' => ['Amount Due' => 'amount']]);
+// poll $esms->jobs->get($job['job_id']) until status is "done"
+$c = $esms->campaigns->create(['name' => 'October dues', 'text' => 'Hi {first_name}, you owe {amount|0}.',
+    'audience' => [['type' => 'import', 'id' => $imp['id']]], 'idempotency_key' => 'october-dues']);
+$esms->campaigns->prepare($c['id']);
+if ($esms->campaigns->review($c['id'])['review']['can_launch']) {
+    $esms->campaigns->launch($c['id']);
+}
+$report = $esms->campaigns->report($c['id']);
+```
+
+Also: `campaigns->pause/resume/cancel/retryFailed/duplicate/recipients/runs`, `contacts`, `groups`, `templates` (with `starterPack()` and `useStarter($key)`).
+The signed `campaign.completed` webhook uses the same `Client::verifyWebhook()` check.
+
 ## Delivery status
 
 ```php

@@ -64,6 +64,25 @@ class Messages
     }
 
     /**
+     * Personalised bulk send (POST /v1/messages/batch), durable and resumable.
+     *
+     * Keys: template + recipients [[to, name?, vars?, text?]] or messages
+     * [[to, text]], plus sender_id, sender_fallback, message_type, name, tags,
+     * default_country, schedule [mode, at, timezone, recurrence],
+     * throttle_per_minute, callback_url, template_id. An Idempotency-Key is
+     * generated unless you pass idempotency_key, so a retry never sends twice.
+     *
+     * @param array<string,mixed> $params
+     * @return array<string,mixed> batch_id, campaign_id, status, accepted, rejected, estimated_cost, currency...
+     */
+    public function sendBatch(array $params): array
+    {
+        $key = $params['idempotency_key'] ?? HttpClient::newIdempotencyKey();
+        unset($params['idempotency_key']);
+        return $this->http->request('POST', '/messages/batch', null, $params, ['Idempotency-Key' => $key]);
+    }
+
+    /**
      * Schedule an SMS for later delivery (5 minutes to 7 days out).
      *
      * @param array<string,mixed> $params

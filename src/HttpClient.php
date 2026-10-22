@@ -15,7 +15,7 @@ use Esms\Exception\EsmsException;
  */
 class HttpClient
 {
-    private const VERSION = '1.1.0';
+    private const VERSION = '1.2.0';
 
     /** Methods that are safe to repeat after a 5xx or network error. */
     private const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS'];
@@ -145,6 +145,42 @@ class HttpClient
         }
 
         throw new ConnectionException($lastError ? (string) $lastError : 'Request failed');
+    }
+
+    /**
+     * Send a raw body (multipart uploads). Not retried after a 5xx or network
+     * error (a POST without an Idempotency-Key); 429 is retried.
+     *
+     * @return mixed
+     */
+    public function requestRaw(string $method, string $path, string $payload, string $contentType)
+    {
+        $url = $this->baseUrl . $path;
+        $headers = [
+            'Authorization: Bearer ' . $this->apiKey,
+            'Accept: application/json',
+            'User-Agent: esms-php/' . self::VERSION,
+            'Content-Type: ' . $contentType,
+        ];
+        for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
+            [$status, $rawBody, $requestId, $curlErr, $retryAfter] = $this->send($method, $url, $headers, $payload);
+            if ($curlErr !== null) {
+                throw new ConnectionException("Could not reach the eSMS API: {$curlErr}");
+            }
+            $parsed = $rawBody === '' ? null : $this->safeJson($rawBody);
+            if ($status >= 200 && $status < 300) {
+                if (is_string($parsed)) {
+                    throw new EsmsException("Unexpected non-JSON response (HTTP {$status})", $status, null, substr($parsed, 0, 500), $requestId);
+                }
+                return $parsed;
+            }
+            if ($status === 429 && $attempt < $this->maxRetries) {
+                usleep((int) ($this->backoff($attempt, $retryAfter) * 1_000_000));
+                continue;
+            }
+            throw EsmsException::fromResponse($status, $parsed, $requestId);
+        }
+        throw new ConnectionException('Request failed');
     }
 
     /**
