@@ -2,7 +2,7 @@
     "name": "esmsafrica/sms",
     "description": "Official PHP SDK for the eSMS Africa SMS API",
     "type": "library",
-    "keywords": ["esms", "sms", "africa", "bulk sms", "otp", "messaging"],
+    "keywords": ["esms", "esms africa", "sms", "sms api", "bulk sms", "sms gateway", "otp", "verification", "2fa", "messaging", "africa"],
     "homepage": "https://esmsafrica.io",
     "license": "MIT",
     "authors": [
@@ -11,6 +11,12 @@
             "email": "support@esmsafrica.io"
         }
     ],
+    "support": {
+        "email": "support@esmsafrica.io",
+        "docs": "https://docs.esmsafrica.io/docs/sdks",
+        "issues": "https://github.com/eSMS-Africa/esms-sdk-php/issues",
+        "source": "https://github.com/eSMS-Africa/esms-sdk-php"
+    },
     "require": {
         "php": ">=7.4",
         "ext-json": "*",
