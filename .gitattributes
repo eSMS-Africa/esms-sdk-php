@@ -1,0 +1,6 @@
+# Keep the Composer dist archive to the library itself.
+/.github         export-ignore
+/tests           export-ignore
+/phpunit.xml     export-ignore
+/.gitignore      export-ignore
+/.gitattributes  export-ignore

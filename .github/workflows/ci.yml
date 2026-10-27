@@ -10,14 +10,20 @@ on:
 # PHP packages are distributed via Packagist, which auto-updates from a GitHub
 # webhook on each push/tag - no publish step runs here. Register the package
 # once at https://packagist.org/packages/submit with the repo URL.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
         with:
           php-version: "8.2"
           extensions: curl, json
-      - run: composer install --no-interaction
+      - run: composer install --no-interaction --no-plugins --no-scripts
+      - run: composer audit
       - run: vendor/bin/phpunit
