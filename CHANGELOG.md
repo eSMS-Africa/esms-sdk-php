@@ -2,6 +2,12 @@
 
 All notable changes to this SDK. Versions follow [semver](https://semver.org).
 
+## 1.2.1 - 2026-10-27
+
+### Security
+- cURL is pinned to http(s), never follows redirects, and always verifies TLS (peer + host) regardless of php.ini defaults.
+- The Composer dist archive no longer ships tests, phpunit.xml or CI files (`.gitattributes` export-ignore).
+
 ## 1.2.0 - 2026-10-22
 
 ### Added

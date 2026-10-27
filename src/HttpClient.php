@@ -15,7 +15,7 @@ use Esms\Exception\EsmsException;
  */
 class HttpClient
 {
-    private const VERSION = '1.2.0';
+    private const VERSION = '1.2.1';
 
     /** Methods that are safe to repeat after a 5xx or network error. */
     private const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS'];
